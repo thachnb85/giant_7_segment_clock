@@ -6,7 +6,13 @@ Led is on D3 of NodeMCU
 - StL files are in STL folder
 
 # 3. Webserver
-- Copy files in data folder to device.
+### Install ESP8266 support to Arduino
+Arduino > Preferences > Additonal Board Management link
+```
+http://arduino.esp8266.com/stable/package_esp8266com_index.json
+```
+
+### Install the FS tool
 http://arduino.esp8266.com/Arduino/versions/2.3.0/doc/filesystem.html#uploading-files-to-file-system
 
 Before uploading the files to your ESP board you have to gzip them with the command:
