@@ -36,7 +36,7 @@ ESP8266HTTPUpdateServer httpUpdateServer;
 // NTP SERVER
 #include <NTPClient.h>
 
-// For UTC -6.00 : -6 * 60 * 60 : -18000
+// For UTC -6.00 : -6 * 60 * 60 : -21600 (Saskatoon)
 // For UTC +1.00 : 1 * 60 * 60 : 3600
 // For UTC +0.00 : 0 * 60 * 60 : 0
 
