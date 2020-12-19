@@ -3,28 +3,28 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
-#include <FS.h>                               // Please read the instructions on http://arduino.esp8266.com/Arduino/versions/2.3.0/doc/filesystem.html#uploading-files-to-file-system
+#include <FS.h> // Please read the instructions on http://arduino.esp8266.com/Arduino/versions/2.3.0/doc/filesystem.html#uploading-files-to-file-system
 #define countof(a) (sizeof(a) / sizeof(a[0]))
 #define COUNTDOWN_OUTPUT D5
 //===================================================================================================
 // RGBW led setup
 #define PIN D3
 #define serialRate 9600
-#define NUM_LEDS 58 // Total 58 leds for 2 leds/segment design.  
+#define NUM_LEDS 58 // Total 58 leds for 2 leds/segment design.
 
 // Setup the LED strips.
 Adafruit_NeoPixel LEDs(NUM_LEDS, PIN, NEO_GRBW + NEO_KHZ800);
 //====================================================================================================
 // Wifi Setup
-#define WIFIMODE 2                            // 0 = Only Soft Access Point, 1 = Only connect to local WiFi network with UN/PW, 2 = Both
+#define WIFIMODE 2 // 0 = Only Soft Access Point, 1 = Only connect to local WiFi network with UN/PW, 2 = Both
 
 #if defined(WIFIMODE) && (WIFIMODE == 0 || WIFIMODE == 2)
-  const char* APssid = "CLOCK_AP";        
-  const char* APpassword = "1234567890";  
+const char *APssid = "CLOCK_AP";
+const char *APpassword = "1234567890";
 #endif
-  
+
 #if defined(WIFIMODE) && (WIFIMODE == 1 || WIFIMODE == 2)
-  #include "credential.h"                    // Create this file in the same directory as the .ino file and add your credentials (#define SID YOURSSID and on the second line #define PW YOURPASSWORD)
+#include "credential.h" // Create this file in the same directory as the .ino file and add your credentials (#define SID YOURSSID and on the second line #define PW YOURPASSWORD)
 #endif
 
 //=====================================================================================================
@@ -46,24 +46,23 @@ char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursd
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 
-
 //=====================================================================================================
 // Settings
 // We update the time every second
 int previousSeconds = 0;
 
 unsigned long prevTime = 0;
-byte r_val = 255;
+byte r_val = 0;
 byte g_val = 0;
-byte b_val = 0;
+byte b_val = 255;
 bool dotsOn = true;
 byte brightness = 255;
 float temperatureCorrection = -3.0;
-byte temperatureSymbol = 12;                  // 12=Celcius, 13=Fahrenheit check 'numbers'
-byte clockMode = 0;                           // Clock modes: 0=Clock, 1=Countdown, 2=Temperature, 3=Scoreboard
+byte temperatureSymbol = 12; // 12=Celcius, 13=Fahrenheit check 'numbers'
+byte clockMode = 0;          // Clock modes: 0=Clock, 1=Countdown, 2=Temperature, 3=Scoreboard
 unsigned long countdownMilliSeconds;
 unsigned long endCountDownMillis;
-byte hourFormat = 24;                         // Change this to 12 if you want default 12 hours format instead of 24               
+byte hourFormat = 24; // Change this to 12 if you want default 12 hours format instead of 24
 uint32_t countdownColor = LEDs.Color(0, 255, 0);
 byte scoreboardLeft = 0;
 byte scoreboardRight = 0;
@@ -71,7 +70,7 @@ uint32_t scoreboardColorLeft = LEDs.Color(255, 0, 0);
 uint32_t scoreboardColorRight = LEDs.Color(0, 255, 0);
 uint32_t alternateColor = LEDs.Color(0, 0, 0);
 
-   /*
+/*
    * 
       __ __        __ __          __ __         _8 _9   
     __     __    __     __      __     __     7       10
@@ -84,23 +83,25 @@ uint32_t alternateColor = LEDs.Color(0, 0, 0);
    */
 // This is the number with 2 leds in each segment
 long numbers[] = {
-  0b00111111111111,  // [0] 0
-  0b00110000000011,  // [1] 1
-  0b11111100111100,  // [2] 2
-  0b11111100001111,  // [3] 3
-  0b11110011000011,  // [4] 4
-  0b11001111001111,  // [5] 5
-  0b11001111111111,  // [6] 6
-  0b00111100000011,  // [7] 7
-  0b11111111111111,  // [8] 8
-  0b11111111001111,  // [9] 9
-  0b00000000000000,  // [10] off
-  0b11111111000000,  // [11] degrees symbol
-  0b00001111111100,  // [12] C(elsius)
-  0b11001111110000,  // [13] F(ahrenheit)
+    0b00111111111111, // [0] 0
+    0b00110000000011, // [1] 1
+    0b11111100111100, // [2] 2
+    0b11111100001111, // [3] 3
+    0b11110011000011, // [4] 4
+    0b11001111001111, // [5] 5
+    0b11001111111111, // [6] 6
+    0b00111100000011, // [7] 7
+    0b11111111111111, // [8] 8
+    0b11111111001111, // [9] 9
+    0b00000000000000, // [10] off
+    0b11111111000000, // [11] degrees symbol
+    0b00001111111100, // [12] C(elsius)
+    0b11001111110000, // [13] F(ahrenheit)
 };
 
-   /*
+int numOfLedPerSegment = 14;
+
+/*
    * 
       __ __ __        __ __ __          __ __ __        12 13 14  
     __        __    __        __      __        __    11        15
@@ -140,9 +141,10 @@ void updateScoreboard();
 void updateCountdown();
 void allBlank();
 
-void setup() {
+void setup()
+{
   pinMode(COUNTDOWN_OUTPUT, OUTPUT);
-  Serial.begin(9600); 
+  Serial.begin(9600);
   delay(200);
 
   // LED Startup Sequence
@@ -155,7 +157,7 @@ void setup() {
   }
   LEDs.show();
   delay(500);
-  
+
   for (int i = 0; i < NUM_LEDS; i++)
   {
     LEDs.setPixelColor(i, LEDs.Color(0, 80, 0));
@@ -174,30 +176,32 @@ void setup() {
   LEDs.clear();
   LEDs.show();
 
-  WiFi.setSleepMode(WIFI_NONE_SLEEP);  
+  WiFi.setSleepMode(WIFI_NONE_SLEEP);
 
   delay(200);
 
   // WiFi - AP Mode or both
-#if defined(WIFIMODE) && (WIFIMODE == 0 || WIFIMODE == 2) 
+#if defined(WIFIMODE) && (WIFIMODE == 0 || WIFIMODE == 2)
   WiFi.mode(WIFI_AP_STA);
-  WiFi.softAP(APssid, APpassword);    // IP is usually 192.168.4.1
+  WiFi.softAP(APssid, APpassword); // IP is usually 192.168.4.1
   Serial.println();
   Serial.print("SoftAP IP: ");
   Serial.println(WiFi.softAPIP());
 #endif
 
   // WiFi - Local network Mode or both
-#if defined(WIFIMODE) && (WIFIMODE == 1 || WIFIMODE == 2) 
+#if defined(WIFIMODE) && (WIFIMODE == 1 || WIFIMODE == 2)
   byte count = 0;
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     // Stop if cannot connect
-    if (count >= 60) {
-      Serial.println("Could not connect to local WiFi.");      
+    if (count >= 60)
+    {
+      Serial.println("Could not connect to local WiFi.");
       return;
     }
-       
+
     delay(500);
     Serial.print(".");
 
@@ -215,100 +219,102 @@ void setup() {
 
   IPAddress ip = WiFi.localIP();
   Serial.println(ip[3]);
-#endif   
+#endif
 
   httpUpdateServer.setup(&server);
 
   // Handlers
-  server.on("/color", HTTP_POST, []() {    
+  server.on("/color", HTTP_POST, []() {
     r_val = server.arg("r").toInt();
     g_val = server.arg("g").toInt();
     b_val = server.arg("b").toInt();
     server.send(200, "text/json", "{\"result\":\"ok\"}");
   });
 
-  server.on("/setdate", HTTP_POST, []() { 
+  server.on("/setdate", HTTP_POST, []() {
     // Sample input: date = "Dec 06 2009", time = "12:34:56"
     // Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
     String datearg = server.arg("date");
     String timearg = server.arg("time");
     Serial.println(datearg);
-    Serial.println(timearg);    
+    Serial.println(timearg);
     char d[12];
     char t[9];
     datearg.toCharArray(d, 12);
     timearg.toCharArray(t, 9);
 
     // TODO: set date to RTC, we don't have RTC so we do nothing.
-    clockMode = 0;     
+    clockMode = 0;
     server.send(200, "text/json", "{\"result\":\"ok\"}");
   });
 
-  server.on("/brightness", HTTP_POST, []() {    
-    brightness = server.arg("brightness").toInt();    
+  server.on("/brightness", HTTP_POST, []() {
+    brightness = server.arg("brightness").toInt();
     server.send(200, "text/json", "{\"result\":\"ok\"}");
   });
-  
-  server.on("/countdown", HTTP_POST, []() {    
-    countdownMilliSeconds = server.arg("ms").toInt();     
+
+  server.on("/countdown", HTTP_POST, []() {
+    countdownMilliSeconds = server.arg("ms").toInt();
     byte cd_r_val = server.arg("r").toInt();
     byte cd_g_val = server.arg("g").toInt();
     byte cd_b_val = server.arg("b").toInt();
     digitalWrite(COUNTDOWN_OUTPUT, LOW);
-    countdownColor = LEDs.Color(cd_r_val, cd_g_val, cd_b_val); 
+    countdownColor = LEDs.Color(cd_r_val, cd_g_val, cd_b_val);
     endCountDownMillis = millis() + countdownMilliSeconds;
-    allBlank(); 
-    clockMode = 1;     
+    allBlank();
+    clockMode = 1;
     server.send(200, "text/json", "{\"result\":\"ok\"}");
   });
 
-  server.on("/temperature", HTTP_POST, []() {   
+  server.on("/temperature", HTTP_POST, []() {
     temperatureCorrection = server.arg("correction").toInt();
     temperatureSymbol = server.arg("symbol").toInt();
-    clockMode = 2;     
+    clockMode = 2;
     server.send(200, "text/json", "{\"result\":\"ok\"}");
-  });  
+  });
 
-  server.on("/scoreboard", HTTP_POST, []() {   
+  server.on("/scoreboard", HTTP_POST, []() {
     scoreboardLeft = server.arg("left").toInt();
     scoreboardRight = server.arg("right").toInt();
-    scoreboardColorLeft = LEDs.Color(server.arg("rl").toInt(),server.arg("gl").toInt(),server.arg("bl").toInt());
-    scoreboardColorRight = LEDs.Color(server.arg("rr").toInt(),server.arg("gr").toInt(),server.arg("br").toInt());
-    clockMode = 3;     
+    scoreboardColorLeft = LEDs.Color(server.arg("rl").toInt(), server.arg("gl").toInt(), server.arg("bl").toInt());
+    scoreboardColorRight = LEDs.Color(server.arg("rr").toInt(), server.arg("gr").toInt(), server.arg("br").toInt());
+    clockMode = 3;
     server.send(200, "text/json", "{\"result\":\"ok\"}");
-  });  
+  });
 
-  server.on("/hourformat", HTTP_POST, []() {   
+  server.on("/hourformat", HTTP_POST, []() {
     hourFormat = server.arg("hourformat").toInt();
-    clockMode = 0;     
+    clockMode = 0;
     server.send(200, "text/json", "{\"result\":\"ok\"}");
-  }); 
+  });
 
-  server.on("/clock", HTTP_POST, []() {       
-    clockMode = 0;     
+  server.on("/clock", HTTP_POST, []() {
+    clockMode = 0;
     server.send(200, "text/json", "{\"result\":\"ok\"}");
-  });  
-  
+  });
+
   // Before uploading the files with the "ESP8266 Sketch Data Upload" tool, zip the files with the command "gzip -r ./data/" (on Windows I do this with a Git Bash)
   // *.gz files are automatically unpacked and served from your ESP (so you don't need to create a handler for each file).
   server.serveStatic("/", SPIFFS, "/", "max-age=86400");
-  server.begin();     
+  server.begin();
 
   SPIFFS.begin();
   Serial.println("SPIFFS contents:");
   Dir dir = SPIFFS.openDir("/");
-  while (dir.next()) {
+  while (dir.next())
+  {
     String fileName = dir.fileName();
     size_t fileSize = dir.fileSize();
     Serial.printf("FS File: %s, size: %s\n", fileName.c_str(), String(fileSize).c_str());
   }
-  Serial.println(); 
-  
+  Serial.println();
+
   digitalWrite(COUNTDOWN_OUTPUT, LOW);
 }
 
-void loop(){
-  server.handleClient(); 
+void loop()
+{
+  server.handleClient();
   // Update every seconds
   timeClient.update();
 
@@ -321,17 +327,25 @@ void loop(){
   // Serial.println(timeClient.getSeconds());
 
   int currentSecond = timeClient.getSeconds();
-  if (currentSecond - previousSeconds != 0){
+  if (currentSecond - previousSeconds != 0)
+  {
     previousSeconds = currentSecond;
 
-    if (clockMode == 0) {
+    if (clockMode == 0)
+    {
       updateClock(timeClient.getHours(), timeClient.getMinutes(), timeClient.getSeconds());
-    } else if (clockMode == 1) {
+    }
+    else if (clockMode == 1)
+    {
       updateCountdown();
-    } else if (clockMode == 2) {
-      updateTemperature();      
-    } else if (clockMode == 3) {
-      updateScoreboard();            
+    }
+    else if (clockMode == 2)
+    {
+      updateTemperature();
+    }
+    else if (clockMode == 3)
+    {
+      updateScoreboard();
     }
 
     LEDs.setBrightness(brightness);
@@ -339,8 +353,9 @@ void loop(){
   }
 }
 
-void displayNumber(byte number, byte segment, uint32_t color) {
-    /*
+void displayNumber(byte number, byte segment, uint32_t color)
+{
+  /*
    * 
       __ __        __ __          __ __         _8 _9   
     __     __    __     __      __     __     7       10
@@ -354,36 +369,41 @@ void displayNumber(byte number, byte segment, uint32_t color) {
 
   // segment from left to right: 3, 2, 1, 0
   byte startindex = 0;
-  switch (segment) {
-    case 0:
-      startindex = 0;
-      break;
-    case 1:
-      startindex = 14;
-      break;
-    case 2:
-      startindex = 30;
-      break;
-    case 3:
-      startindex = 44;
-      break;    
+  switch (segment)
+  {
+  case 0:
+    startindex = 0;
+    break;
+  case 1:
+    startindex = 14;
+    break;
+  case 2:
+    startindex = 30;
+    break;
+  case 3:
+    startindex = 44;
+    break;
   }
 
   // set color for 1 number, start from index
-  for (byte i=0; i<21; i++){
+  for (byte i = 0; i < numOfLedPerSegment; i++)
+  {
     yield();
-    LEDs.setPixelColor(i + startindex,  ((numbers[number] & 1 << i) == 1 << i) ? color : alternateColor);
-  } 
+    LEDs.setPixelColor(i + startindex, ((numbers[number] & 1 << i) == 1 << i) ? color : alternateColor);
+  }
 }
 
-void allBlank() {
-  for (int i=0; i<NUM_LEDS; i++) {
+void allBlank()
+{
+  for (int i = 0; i < NUM_LEDS; i++)
+  {
     LEDs.setPixelColor(i, LEDs.Color(0, 0, 0));
   }
   LEDs.show();
 }
 
-void updateClock(int hour, int mins, int secs) { 
+void updateClock(int hour, int mins, int secs)
+{
   Serial.print(hour);
   Serial.print(":");
   Serial.print(mins);
@@ -392,40 +412,41 @@ void updateClock(int hour, int mins, int secs) {
 
   if (hourFormat == 12 && hour > 12)
     hour = hour - 12;
-  
+
   byte h1 = hour / 10;
   byte h2 = hour % 10;
   byte m1 = mins / 10;
-  byte m2 = mins % 10;  
+  byte m2 = mins % 10;
   byte s1 = secs / 10;
   byte s2 = secs % 10;
-  
+
   uint32_t color = LEDs.Color(r_val, g_val, b_val);
 
   if (h1 > 0)
-    displayNumber(h1,3,color);
-  else 
-    displayNumber(10,3,color);  // Blank
-    
-  displayNumber(h2,2,color);
-  displayNumber(m1,1,color);
-  displayNumber(m2,0,color); 
+    displayNumber(h1, 3, color);
+  else
+    displayNumber(10, 3, color); // Blank
 
-  displayDots(color);  
+  displayNumber(h2, 2, color);
+  displayNumber(m1, 1, color);
+  displayNumber(m2, 0, color);
+
+  displayDots(color);
 }
 
-void updateCountdown() {
+void updateCountdown()
+{
 
-  if (countdownMilliSeconds == 0 && endCountDownMillis == 0) 
+  if (countdownMilliSeconds == 0 && endCountDownMillis == 0)
     return;
-    
+
   unsigned long restMillis = endCountDownMillis - millis();
-  unsigned long hours   = ((restMillis / 1000) / 60) / 60;
+  unsigned long hours = ((restMillis / 1000) / 60) / 60;
   unsigned long minutes = (restMillis / 1000) / 60;
   unsigned long seconds = restMillis / 1000;
   int remSeconds = seconds - (minutes * 60);
-  int remMinutes = minutes - (hours * 60); 
-  
+  int remMinutes = minutes - (hours * 60);
+
   Serial.print(restMillis);
   Serial.print(" ");
   Serial.print(hours);
@@ -441,72 +462,85 @@ void updateCountdown() {
   byte h1 = hours / 10;
   byte h2 = hours % 10;
   byte m1 = remMinutes / 10;
-  byte m2 = remMinutes % 10;  
+  byte m2 = remMinutes % 10;
   byte s1 = remSeconds / 10;
   byte s2 = remSeconds % 10;
 
   uint32_t color = countdownColor;
-  if (restMillis <= 60000) {
-    color = LEDs.Color(255,0,0);
+  if (restMillis <= 60000)
+  {
+    color = LEDs.Color(255, 0, 0);
   }
 
-  if (hours > 0) {
+  if (hours > 0)
+  {
     // hh:mm
-    displayNumber(h1,3,color); 
-    displayNumber(h2,2,color);
-    displayNumber(m1,1,color);
-    displayNumber(m2,0,color);  
-  } else {
-    // mm:ss   
-    displayNumber(m1,3,color);
-    displayNumber(m2,2,color);
-    displayNumber(s1,1,color);
-    displayNumber(s2,0,color);  
+    displayNumber(h1, 3, color);
+    displayNumber(h2, 2, color);
+    displayNumber(m1, 1, color);
+    displayNumber(m2, 0, color);
+  }
+  else
+  {
+    // mm:ss
+    displayNumber(m1, 3, color);
+    displayNumber(m2, 2, color);
+    displayNumber(s1, 1, color);
+    displayNumber(s2, 0, color);
   }
 
-  displayDots(color);  
+  displayDots(color);
 
-  if (hours <= 0 && remMinutes <= 0 && remSeconds <= 0) {
+  if (hours <= 0 && remMinutes <= 0 && remSeconds <= 0)
+  {
     Serial.println("Countdown timer ended.");
     //endCountdown();
     countdownMilliSeconds = 0;
     endCountDownMillis = 0;
     digitalWrite(COUNTDOWN_OUTPUT, HIGH);
     return;
-  }  
+  }
 }
 
-void endCountdown() {
+void endCountdown()
+{
   allBlank();
-  for (int i=0; i<NUM_LEDS; i++) {
-    if (i>0)
+  for (int i = 0; i < NUM_LEDS; i++)
+  {
+    if (i > 0)
       LEDs.setPixelColor(i - 1, LEDs.Color(0, 0, 0));
-    
+
     LEDs.setPixelColor(i, LEDs.Color(255, 0, 0));
     LEDs.show();
     delay(25);
-  }  
+  }
 }
 
 // Dot is 28, 29 for 2 led/segment design
-void displayDots(uint32_t color) {
-  if (dotsOn) {
+void displayDots(uint32_t color)
+{
+  if (dotsOn)
+  {
     LEDs.setPixelColor(28, color);
     LEDs.setPixelColor(29, color);
-  } else {
+  }
+  else
+  {
     LEDs.setPixelColor(28, LEDs.Color(0, 0, 0));
     LEDs.setPixelColor(29, LEDs.Color(0, 0, 0));
   }
 
-  dotsOn = !dotsOn;  
+  dotsOn = !dotsOn;
 }
 
-void hideDots() {
+void hideDots()
+{
   LEDs.setPixelColor(28, LEDs.Color(0, 0, 0));
   LEDs.setPixelColor(29, LEDs.Color(0, 0, 0));
 }
 
-void updateTemperature() {
+void updateTemperature()
+{
   float ctemp = 0;
   if (temperatureSymbol == 13)
     ctemp = (ctemp * 1.8000) + 32;
@@ -516,22 +550,23 @@ void updateTemperature() {
 
   uint32_t color = LEDs.Color(r_val, g_val, b_val);
 
-  displayNumber(t1,3,color);
-  displayNumber(t2,2,color);
-  displayNumber(11,1,color);
-  displayNumber(temperatureSymbol,0,color);
+  displayNumber(t1, 3, color);
+  displayNumber(t2, 2, color);
+  displayNumber(11, 1, color);
+  displayNumber(temperatureSymbol, 0, color);
   hideDots();
 }
 
-void updateScoreboard() {
+void updateScoreboard()
+{
   byte sl1 = scoreboardLeft / 10;
   byte sl2 = scoreboardLeft % 10;
   byte sr1 = scoreboardRight / 10;
   byte sr2 = scoreboardRight % 10;
 
-  displayNumber(sl1,3,scoreboardColorLeft);
-  displayNumber(sl2,2,scoreboardColorLeft);
-  displayNumber(sr1,1,scoreboardColorRight);
-  displayNumber(sr2,0,scoreboardColorRight);
+  displayNumber(sl1, 3, scoreboardColorLeft);
+  displayNumber(sl2, 2, scoreboardColorLeft);
+  displayNumber(sr1, 1, scoreboardColorRight);
+  displayNumber(sr2, 0, scoreboardColorRight);
   hideDots();
 }
