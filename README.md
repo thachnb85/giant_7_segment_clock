@@ -1,6 +1,7 @@
 # 1. Giant 7 segments clock.
-2 leds per segment, each number has 14 leds, total 
-Led is on D3 of NodeMCU
+- 2 leds per segment, each number has 14 leds, total 58 leds
+
+- Led is on D3 of NodeMCU
 
 # 2. 3D printing parts
 - StL files are in STL folder
