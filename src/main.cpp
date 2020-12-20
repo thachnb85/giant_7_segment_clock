@@ -3,9 +3,16 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
+#include <ESP8266HTTPClient.h>
+#include <ArduinoJson.h>
+#include <NTPClient.h>
 #include <FS.h> // Please read the instructions on http://arduino.esp8266.com/Arduino/versions/2.3.0/doc/filesystem.html#uploading-files-to-file-system
 #define countof(a) (sizeof(a) / sizeof(a[0]))
 #define COUNTDOWN_OUTPUT D5
+//=====================================================================================================
+// Web server
+ESP8266WebServer server(80);
+ESP8266HTTPUpdateServer httpUpdateServer;
 //===================================================================================================
 // RGBW led setup
 #define PIN D3
@@ -26,15 +33,8 @@ const char *APpassword = "1234567890";
 #if defined(WIFIMODE) && (WIFIMODE == 1 || WIFIMODE == 2)
 #include "credential.h" // Create this file in the same directory as the .ino file and add your credentials (#define SID YOURSSID and on the second line #define PW YOURPASSWORD)
 #endif
-
-//=====================================================================================================
-// Web server
-ESP8266WebServer server(80);
-ESP8266HTTPUpdateServer httpUpdateServer;
-
 //=====================================================================================================
 // NTP SERVER
-#include <NTPClient.h>
 
 // For UTC -6.00 : -6 * 60 * 60 : -21600 (Saskatoon)
 // For UTC +1.00 : 1 * 60 * 60 : 3600
@@ -48,21 +48,24 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 
 //=====================================================================================================
 // Settings
+
+float temperatureNow = 0;
+
 // We update the time every second
 int previousSeconds = 0;
 
 unsigned long prevTime = 0;
 byte r_val = 0;
 byte g_val = 0;
-byte b_val = 255;
+byte b_val = 200;
 bool dotsOn = true;
-byte brightness = 255;
+byte brightness = 125;
 float temperatureCorrection = -3.0;
 byte temperatureSymbol = 12; // 12=Celcius, 13=Fahrenheit check 'numbers'
 byte clockMode = 0;          // Clock modes: 0=Clock, 1=Countdown, 2=Temperature, 3=Scoreboard
 unsigned long countdownMilliSeconds;
 unsigned long endCountDownMillis;
-byte hourFormat = 24; // Change this to 12 if you want default 12 hours format instead of 24
+byte hourFormat = 12; // Change this to 12 if you want default 12 hours format instead of 24
 uint32_t countdownColor = LEDs.Color(0, 255, 0);
 byte scoreboardLeft = 0;
 byte scoreboardRight = 0;
@@ -140,6 +143,8 @@ void updateTemperature();
 void updateScoreboard();
 void updateCountdown();
 void allBlank();
+String httpGETRequest(const char* serverName);
+void queryTemperature();
 
 void setup()
 {
@@ -293,8 +298,6 @@ void setup()
     server.send(200, "text/json", "{\"result\":\"ok\"}");
   });
 
-  // Before uploading the files with the "ESP8266 Sketch Data Upload" tool, zip the files with the command "gzip -r ./data/" (on Windows I do this with a Git Bash)
-  // *.gz files are automatically unpacked and served from your ESP (so you don't need to create a handler for each file).
   server.serveStatic("/", SPIFFS, "/", "max-age=86400");
   server.begin();
 
@@ -404,11 +407,11 @@ void allBlank()
 
 void updateClock(int hour, int mins, int secs)
 {
-  Serial.print(hour);
-  Serial.print(":");
-  Serial.print(mins);
-  Serial.print(":");
-  Serial.println(secs);
+  // Serial.print(hour);
+  // Serial.print(":");
+  // Serial.print(mins);
+  // Serial.print(":");
+  // Serial.println(secs);
 
   if (hourFormat == 12 && hour > 12)
     hour = hour - 12;
@@ -569,4 +572,58 @@ void updateScoreboard()
   displayNumber(sr1, 1, scoreboardColorRight);
   displayNumber(sr2, 0, scoreboardColorRight);
   hideDots();
+}
+
+void queryTemperature()
+{
+  String payload = httpGETRequest(weatherURL);
+  DynamicJsonDocument doc(512);
+  DeserializationError error = deserializeJson(doc, payload);
+  // Test if parsing succeeds.
+  if (error) {
+    Serial.print(F("deserializeJson() failed: "));
+    Serial.println(error.f_str());
+    return;
+  }
+
+  // Test if parsing succeeds.
+  float temp = doc["main"]["temp"];
+  temperatureNow = temp;
+
+  Serial.print("Current temp = ");
+  Serial.println(temperatureNow);
+}
+
+void displayTemperature(){
+  byte t1 = int(temperatureNow) / 10;
+  byte t2 = int(temperatureNow) % 10;
+
+  uint32_t color = LEDs.Color(r_val, g_val, b_val);
+
+  displayNumber(t1, 3, color);
+  displayNumber(t2, 2, color);
+  displayNumber(11, 1, color);
+  displayNumber(temperatureSymbol, 0, color);
+  hideDots();
+}
+
+
+String httpGETRequest(const char* serverName) {
+  HTTPClient http;
+  http.begin(serverName);
+  
+  int httpResponseCode = http.GET();
+  String payload = "{}"; 
+  if (httpResponseCode>0) {
+    Serial.print("HTTP Response code: ");
+    Serial.println(httpResponseCode);
+    payload = http.getString();
+  }
+  else {
+    Serial.print("Error code: ");
+    Serial.println(httpResponseCode);
+  }
+  // Free resources
+  http.end();
+  return payload;
 }
