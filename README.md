@@ -1,4 +1,4 @@
-# 1. Giant 7 segments clock.
+# 1. Another giant 7 segments clock
 - Clock will connect to wifi network after booting, pulling the time from NTP.org
 - Weather data is from api.openweathermap.org
 - 2 leds per segment, each number has 14 leds, total 58 leds
