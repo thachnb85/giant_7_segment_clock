@@ -4,7 +4,7 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
 #include <ESP8266HTTPClient.h>
-#include <ArduinoJson.h>
+#include <Arduino_JSON.h>
 #include <NTPClient.h>
 #include <FS.h> // Please read the instructions on http://arduino.esp8266.com/Arduino/versions/2.3.0/doc/filesystem.html#uploading-files-to-file-system
 #define countof(a) (sizeof(a) / sizeof(a[0]))
@@ -56,10 +56,10 @@ int previousSeconds = 0;
 
 unsigned long prevTime = 0;
 byte r_val = 0;
-byte g_val = 0;
-byte b_val = 200;
+byte g_val = 255;
+byte b_val = 0;
 bool dotsOn = true;
-byte brightness = 125;
+byte brightness = 255;
 float temperatureCorrection = -3.0;
 byte temperatureSymbol = 12; // 12=Celcius, 13=Fahrenheit check 'numbers'
 byte clockMode = 0;          // Clock modes: 0=Clock, 1=Countdown, 2=Temperature, 3=Scoreboard
@@ -143,7 +143,7 @@ void updateTemperature();
 void updateScoreboard();
 void updateCountdown();
 void allBlank();
-String httpGETRequest(const char* serverName);
+String httpGETRequest(const char *serverName);
 void queryTemperature();
 
 void setup()
@@ -333,6 +333,9 @@ void loop()
   if (currentSecond - previousSeconds != 0)
   {
     previousSeconds = currentSecond;
+    // if (currentSecond % 10 == 0){
+    //   queryTemperature();
+    // }
 
     if (clockMode == 0)
     {
@@ -543,10 +546,15 @@ void hideDots()
 }
 
 void updateTemperature()
-{
-  float ctemp = 0;
+{ 
+  float ctemp = temperatureNow;
+
+  // Convert to F
   if (temperatureSymbol == 13)
     ctemp = (ctemp * 1.8000) + 32;
+
+  Serial.print("updateTemperature: ");
+  Serial.println(ctemp);
 
   byte t1 = int(ctemp) / 10;
   byte t2 = int(ctemp) % 10;
@@ -577,24 +585,31 @@ void updateScoreboard()
 void queryTemperature()
 {
   String payload = httpGETRequest(weatherURL);
-  DynamicJsonDocument doc(512);
-  DeserializationError error = deserializeJson(doc, payload);
-  // Test if parsing succeeds.
-  if (error) {
-    Serial.print(F("deserializeJson() failed: "));
-    Serial.println(error.f_str());
+  JSONVar myObject = JSON.parse(payload);
+ if (JSON.typeof(myObject) == "undefined")
+  {
+    Serial.println("Parsing input failed!");
     return;
   }
 
-  // Test if parsing succeeds.
-  float temp = doc["main"]["temp"];
-  temperatureNow = temp;
+  // JSONVar keys = myObject.keys();
 
-  Serial.print("Current temp = ");
-  Serial.println(temperatureNow);
+  // for (int i = 0; i < keys.length(); i++)
+  // {
+  //   JSONVar value = myObject[keys[i]];
+  //   Serial.print(keys[i]);
+  //   Serial.print(" = ");
+  //   Serial.println(value);
+  // }
+
+  Serial.print("Raw temperature from server: ");
+  Serial.println(myObject["main"]["temp"]);
+  JSONVar value = myObject["main"]["temp"];
+  temperatureNow = double(value) - 273.15; // in *C
 }
 
-void displayTemperature(){
+void displayTemperature()
+{
   byte t1 = int(temperatureNow) / 10;
   byte t2 = int(temperatureNow) % 10;
 
@@ -607,19 +622,19 @@ void displayTemperature(){
   hideDots();
 }
 
-
-String httpGETRequest(const char* serverName) {
+String httpGETRequest(const char *serverName)
+{
   HTTPClient http;
   http.begin(serverName);
-  
+
   int httpResponseCode = http.GET();
-  String payload = "{}"; 
-  if (httpResponseCode>0) {
-    Serial.print("HTTP Response code: ");
-    Serial.println(httpResponseCode);
+  String payload = "{}";
+  if (httpResponseCode > 0)
+  {
     payload = http.getString();
   }
-  else {
+  else
+  {
     Serial.print("Error code: ");
     Serial.println(httpResponseCode);
   }
