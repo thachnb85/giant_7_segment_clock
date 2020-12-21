@@ -6,7 +6,7 @@
 #include <ESP8266HTTPClient.h>
 #include <Arduino_JSON.h>
 #include <NTPClient.h>
-#include <FS.h> // Please read the instructions on http://arduino.esp8266.com/Arduino/versions/2.3.0/doc/filesystem.html#uploading-files-to-file-system
+#include <FS.h>
 #define countof(a) (sizeof(a) / sizeof(a[0]))
 #define COUNTDOWN_OUTPUT D5
 //=====================================================================================================
@@ -68,14 +68,14 @@ byte b_val_night = 0;
 // dot color index
 int dotColorIndex = 0;
 uint32_t dotColors[8] = {
-  LEDs.Color(255, 0, 0), //red
-  LEDs.Color(255, 128, 0), //orange
-  LEDs.Color(255, 255, 0), //yellow
-  LEDs.Color(0, 255, 0), // green
-  LEDs.Color(0, 255, 255), //cyan
-  LEDs.Color(0, 128, 255), //light blue
-  LEDs.Color(0, 0, 255), // dark blue
-  LEDs.Color(255, 0, 255), // purple
+    LEDs.Color(255, 0, 0),   //red
+    LEDs.Color(255, 128, 0), //orange
+    LEDs.Color(255, 255, 0), //yellow
+    LEDs.Color(0, 255, 0),   // green
+    LEDs.Color(0, 255, 255), //cyan
+    LEDs.Color(0, 128, 255), //light blue
+    LEDs.Color(0, 0, 255),   // dark blue
+    LEDs.Color(255, 0, 255), // purple
 };
 
 bool isNightColor = false;
@@ -126,38 +126,6 @@ long numbers[] = {
 };
 
 int numOfLedPerSegment = 14;
-
-/*
-   * 
-      __ __ __        __ __ __          __ __ __        12 13 14  
-    __        __    __        __      __        __    11        15
-    __        __    __        __      __        __    10        16
-    __        __    __        __  42  __        __    _9        17
-      __ __ __        __ __ __          __ __ __        20 19 18  
-    __        65    __        44  43  __        21    _8        _0
-    __        __    __        __      __        __    _7        _1
-    __        __    __        __      __        __    _6        _2
-      __ __ __       __ __ __           __ __ __       _5 _4 _3   
-
-   */
-// This is the number with 3 leds in each segment
-// long numbers[] = {
-//   0b000111111111111111111,  // [0] 0
-//   0b000111000000000000111,  // [1] 1
-//   0b111111111000111111000,  // [2] 2
-//   0b111111111000000111111,  // [3] 3
-//   0b111111000111000000111,  // [4] 4
-//   0b111000111111000111111,  // [5] 5
-//   0b111000111111111111111,  // [6] 6
-//   0b000111111000000000111,  // [7] 7
-//   0b111111111111111111111,  // [8] 8
-//   0b111111111111000111111,  // [9] 9
-//   0b000000000000000000000,  // [10] off
-//   0b111111111111000000000,  // [11] degrees symbol
-//   0b000000111111111111000,  // [12] C(elsius)
-//   0b111000111111111000000,  // [13] F(ahrenheit)
-// };
-
 ///==================================================================================
 /// Function prototype
 void displayDots(uint32_t color);
@@ -170,6 +138,7 @@ String httpGETRequest(const char *serverName);
 void queryTemperature();
 void displayColorfulDots();
 
+///==================================================================================
 void setup()
 {
   pinMode(COUNTDOWN_OUTPUT, OUTPUT);
@@ -272,7 +241,6 @@ void setup()
     datearg.toCharArray(d, 12);
     timearg.toCharArray(t, 9);
 
-    // TODO: set date to RTC, we don't have RTC so we do nothing.
     clockMode = 0;
     server.send(200, "text/json", "{\"result\":\"ok\"}");
   });
@@ -343,27 +311,14 @@ void setup()
 void loop()
 {
   server.handleClient();
-  // Update every seconds
   timeClient.update();
-
-  // Serial.print(daysOfTheWeek[timeClient.getDay()]);
-  // Serial.print(", ");
-  // Serial.print(timeClient.getHours());
-  // Serial.print(":");
-  // Serial.print(timeClient.getMinutes());
-  // Serial.print(":");
-  // Serial.println(timeClient.getSeconds());
 
   int currentHour = timeClient.getHours();
   int currentMin = timeClient.getMinutes();
   int currentSecond = timeClient.getSeconds();
 
-  if ( (currentHour >= 21) || (currentHour < 7) || (currentHour == 7 && currentMin < 30 )  ){
-    isNightColor = true;
-  }else{
-    isNightColor = false;
-  }
-  
+  isNightColor = (currentHour >= 21) || (currentHour < 7) || (currentHour == 7 && currentMin < 30);
+
   if (currentSecond - previousSeconds != 0)
   {
     previousSeconds = currentSecond;
@@ -374,9 +329,12 @@ void loop()
 
     if (clockMode == 0)
     {
-      if ((currentSecond >= 5 && currentSecond <= 10) || (currentSecond >= 25 && currentSecond <= 30)){
+      if ((currentSecond >= 5 && currentSecond <= 10) || (currentSecond >= 25 && currentSecond <= 30))
+      {
         updateTemperature();
-      }else{
+      }
+      else
+      {
         updateClock(currentHour, currentMin, currentSecond);
       }
     }
@@ -451,7 +409,8 @@ void allBlank()
 void updateClock(int hour, int mins, int secs)
 {
   uint32_t color = LEDs.Color(r_val, g_val, b_val);
-  if (isNightColor){
+  if (isNightColor)
+  {
     color = LEDs.Color(r_val_night, g_val_night, b_val_night);
   }
 
@@ -591,7 +550,8 @@ void displayColorfulDots()
     LEDs.setPixelColor(29, LEDs.Color(0, 0, 0));
   }
   dotColorIndex++;
-  if (dotColorIndex >= 8) dotColorIndex = 0;
+  if (dotColorIndex >= 8)
+    dotColorIndex = 0;
 
   dotsOn = !dotsOn;
 }
@@ -620,7 +580,8 @@ void updateTemperature()
   byte t2 = int(ctemp) % 10;
 
   uint32_t color = LEDs.Color(r_val, g_val, b_val);
-  if (isNightColor){
+  if (isNightColor)
+  {
     color = LEDs.Color(r_val_night, g_val_night, b_val_night);
   }
 
@@ -666,6 +627,8 @@ void updateScoreboard()
 void queryTemperature()
 {
   yield();
+  // data returning from api.openweathermap.org
+  // temp unit is Kevin
   String payload = httpGETRequest(weatherURL);
   JSONVar myObject = JSON.parse(payload);
   if (JSON.typeof(myObject) == "undefined")
@@ -673,19 +636,6 @@ void queryTemperature()
     Serial.println("Parsing input failed!");
     return;
   }
-
-  // JSONVar keys = myObject.keys();
-
-  // for (int i = 0; i < keys.length(); i++)
-  // {
-  //   JSONVar value = myObject[keys[i]];
-  //   Serial.print(keys[i]);
-  //   Serial.print(" = ");
-  //   Serial.println(value);
-  // }
-
-  // Serial.print("Raw temperature from server: ");
-  // Serial.println(myObject["main"]["temp"]);
   JSONVar value = myObject["main"]["temp"];
   temperatureNow = double(value) - 273.15; // in *C
 }
@@ -721,7 +671,6 @@ String httpGETRequest(const char *serverName)
     Serial.print("Error code: ");
     Serial.println(httpResponseCode);
   }
-  // Free resources
   http.end();
   return payload;
 }
