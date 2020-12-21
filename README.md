@@ -7,7 +7,12 @@
 # 2. 3D printing parts
 - 3D model in STL format. Slicing & printing using your own software/3d printer.
 
-# 3. Webserver
+# 3. Web Server
+### Web Server for other features
+- Scoreboard
+- Count down
+- Changing color/brightness
+
 ### Install ESP8266 support to Arduino
 Arduino > Preferences > Additonal Board Management link
 ```
