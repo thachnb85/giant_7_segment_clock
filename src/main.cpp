@@ -55,9 +55,18 @@ float temperatureNow = 0;
 int previousSeconds = 0;
 
 unsigned long prevTime = 0;
+// day color
 byte r_val = 0;
 byte g_val = 255;
 byte b_val = 0;
+
+// night color
+byte r_val_night = 80;
+byte g_val_night = 0;
+byte b_val_night = 0;
+
+bool isNightColor = false;
+
 bool dotsOn = true;
 byte brightness = 255;
 float temperatureCorrection = -3.0;
@@ -100,6 +109,7 @@ long numbers[] = {
     0b11111111000000, // [11] degrees symbol
     0b00001111111100, // [12] C(elsius)
     0b11001111110000, // [13] F(ahrenheit)
+    0b11000000000000, // [14] MINUS sign
 };
 
 int numOfLedPerSegment = 14;
@@ -312,6 +322,7 @@ void setup()
   }
   Serial.println();
 
+  timeClient.begin();
   digitalWrite(COUNTDOWN_OUTPUT, LOW);
 }
 
@@ -329,17 +340,31 @@ void loop()
   // Serial.print(":");
   // Serial.println(timeClient.getSeconds());
 
+  int currentHour = timeClient.getHours();
+  int currentMin = timeClient.getMinutes();
   int currentSecond = timeClient.getSeconds();
+
+  if ( (currentHour >= 21) || (currentHour < 7) || (currentHour == 7 && currentMin < 30 )  ){
+    isNightColor = true;
+  }else{
+    isNightColor = false;
+  }
+  
   if (currentSecond - previousSeconds != 0)
   {
     previousSeconds = currentSecond;
-    // if (currentSecond % 10 == 0){
-    //   queryTemperature();
-    // }
+    if (currentSecond % 10 == 0)
+    {
+      queryTemperature();
+    }
 
     if (clockMode == 0)
     {
-      updateClock(timeClient.getHours(), timeClient.getMinutes(), timeClient.getSeconds());
+      if ((currentSecond >= 5 && currentSecond <= 10) || (currentSecond >= 25 && currentSecond <= 30)){
+        updateTemperature();
+      }else{
+        updateClock(currentHour, currentMin, currentSecond);
+      }
     }
     else if (clockMode == 1)
     {
@@ -403,6 +428,7 @@ void allBlank()
 {
   for (int i = 0; i < NUM_LEDS; i++)
   {
+    yield();
     LEDs.setPixelColor(i, LEDs.Color(0, 0, 0));
   }
   LEDs.show();
@@ -410,11 +436,10 @@ void allBlank()
 
 void updateClock(int hour, int mins, int secs)
 {
-  // Serial.print(hour);
-  // Serial.print(":");
-  // Serial.print(mins);
-  // Serial.print(":");
-  // Serial.println(secs);
+  uint32_t color = LEDs.Color(r_val, g_val, b_val);
+  if (isNightColor){
+    color = LEDs.Color(r_val_night, g_val_night, b_val_night);
+  }
 
   if (hourFormat == 12 && hour > 12)
     hour = hour - 12;
@@ -423,10 +448,8 @@ void updateClock(int hour, int mins, int secs)
   byte h2 = hour % 10;
   byte m1 = mins / 10;
   byte m2 = mins % 10;
-  byte s1 = secs / 10;
-  byte s2 = secs % 10;
-
-  uint32_t color = LEDs.Color(r_val, g_val, b_val);
+  // byte s1 = secs / 10;
+  // byte s2 = secs % 10;
 
   if (h1 > 0)
     displayNumber(h1, 3, color);
@@ -546,25 +569,49 @@ void hideDots()
 }
 
 void updateTemperature()
-{ 
+{
   float ctemp = temperatureNow;
 
   // Convert to F
   if (temperatureSymbol == 13)
     ctemp = (ctemp * 1.8000) + 32;
 
-  Serial.print("updateTemperature: ");
-  Serial.println(ctemp);
-
-  byte t1 = int(ctemp) / 10;
+  bool printMinusSign = false;
+  if (ctemp < 0)
+  {
+    printMinusSign = true;
+    ctemp = abs(ctemp);
+  }
+  byte t1 = int(abs(ctemp)) / 10;
   byte t2 = int(ctemp) % 10;
 
   uint32_t color = LEDs.Color(r_val, g_val, b_val);
+  if (isNightColor){
+    color = LEDs.Color(r_val_night, g_val_night, b_val_night);
+  }
 
-  displayNumber(t1, 3, color);
-  displayNumber(t2, 2, color);
-  displayNumber(11, 1, color);
-  displayNumber(temperatureSymbol, 0, color);
+  // we dont' need to show zero
+  if (t1 == 0)
+  {
+    if (printMinusSign)
+    {
+      displayNumber(14, 3, color);
+    }
+    displayNumber(t2, 2, color);
+    displayNumber(11, 1, color);                // degree symbol
+    displayNumber(temperatureSymbol, 0, color); // temp Unit.
+  }
+  else
+  {
+    if (printMinusSign)
+    {
+      displayNumber(14, 3, color);
+    }
+    displayNumber(t1, 2, color);
+    displayNumber(t2, 1, color);
+    displayNumber(11, 0, color); // degree symbol
+  }
+
   hideDots();
 }
 
@@ -584,9 +631,10 @@ void updateScoreboard()
 
 void queryTemperature()
 {
+  yield();
   String payload = httpGETRequest(weatherURL);
   JSONVar myObject = JSON.parse(payload);
- if (JSON.typeof(myObject) == "undefined")
+  if (JSON.typeof(myObject) == "undefined")
   {
     Serial.println("Parsing input failed!");
     return;
@@ -602,8 +650,8 @@ void queryTemperature()
   //   Serial.println(value);
   // }
 
-  Serial.print("Raw temperature from server: ");
-  Serial.println(myObject["main"]["temp"]);
+  // Serial.print("Raw temperature from server: ");
+  // Serial.println(myObject["main"]["temp"]);
   JSONVar value = myObject["main"]["temp"];
   temperatureNow = double(value) - 273.15; // in *C
 }
@@ -624,6 +672,7 @@ void displayTemperature()
 
 String httpGETRequest(const char *serverName)
 {
+  yield();
   HTTPClient http;
   http.begin(serverName);
 
