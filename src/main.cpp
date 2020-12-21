@@ -65,6 +65,19 @@ byte r_val_night = 80;
 byte g_val_night = 0;
 byte b_val_night = 0;
 
+// dot color index
+int dotColorIndex = 0;
+uint32_t dotColors[8] = {
+  LEDs.Color(255, 0, 0), //red
+  LEDs.Color(255, 128, 0), //orange
+  LEDs.Color(255, 255, 0), //yellow
+  LEDs.Color(0, 255, 0), // green
+  LEDs.Color(0, 255, 255), //cyan
+  LEDs.Color(0, 128, 255), //light blue
+  LEDs.Color(0, 0, 255), // dark blue
+  LEDs.Color(255, 0, 255), // purple
+};
+
 bool isNightColor = false;
 
 bool dotsOn = true;
@@ -155,6 +168,7 @@ void updateCountdown();
 void allBlank();
 String httpGETRequest(const char *serverName);
 void queryTemperature();
+void displayColorfulDots();
 
 void setup()
 {
@@ -460,7 +474,7 @@ void updateClock(int hour, int mins, int secs)
   displayNumber(m1, 1, color);
   displayNumber(m2, 0, color);
 
-  displayDots(color);
+  displayColorfulDots();
 }
 
 void updateCountdown()
@@ -558,6 +572,26 @@ void displayDots(uint32_t color)
     LEDs.setPixelColor(28, LEDs.Color(0, 0, 0));
     LEDs.setPixelColor(29, LEDs.Color(0, 0, 0));
   }
+
+  dotsOn = !dotsOn;
+}
+
+void displayColorfulDots()
+{
+  uint32_t color = dotColors[dotColorIndex];
+
+  if (dotsOn)
+  {
+    LEDs.setPixelColor(28, color);
+    LEDs.setPixelColor(29, color);
+  }
+  else
+  {
+    LEDs.setPixelColor(28, LEDs.Color(0, 0, 0));
+    LEDs.setPixelColor(29, LEDs.Color(0, 0, 0));
+  }
+  dotColorIndex++;
+  if (dotColorIndex >= 8) dotColorIndex = 0;
 
   dotsOn = !dotsOn;
 }
