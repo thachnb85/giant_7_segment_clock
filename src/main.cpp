@@ -200,14 +200,17 @@ void setup()
   // WiFi - Local network Mode or both
 #if defined(WIFIMODE) && (WIFIMODE == 1 || WIFIMODE == 2)
   byte count = 0;
+  wifi_connect:
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED)
   {
     // Stop if cannot connect
-    if (count >= 100)
+    if (count >= 50)
     {
-      Serial.println("Could not connect to local WiFi.");
-      return;
+      Serial.println("Could not connect to local WiFi. Wait 1 sec and goto wifi_connect");
+      delay(1000);
+      count = 0;
+      goto wifi_connect;
     }
 
     delay(500);
@@ -220,7 +223,7 @@ void setup()
     //   LEDs.setPixelColor(i, LEDs.Color(0, 255, 0));
     // }
     // LEDs.show();
-    // count++;
+    count++;
   }
 
   Serial.print("Local IP: ");
@@ -340,7 +343,7 @@ void loop()
 
   isNightColor = (currentHour >= 21) || (currentHour < 8) || (currentHour == 8 && currentMin < 30);
 
-  if ((currentMin % 10 == 0) && (currentSecond == 20)){
+  if ((currentSecond == 20)){
     //RESET the device via RST pin.
     pinMode(RESET_PIN, OUTPUT);
   }
