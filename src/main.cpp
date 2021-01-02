@@ -200,17 +200,14 @@ void setup()
   // WiFi - Local network Mode or both
 #if defined(WIFIMODE) && (WIFIMODE == 1 || WIFIMODE == 2)
   byte count = 0;
-  wifi_connect:
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED)
   {
     // Stop if cannot connect
     if (count >= 50)
     {
-      Serial.println("Could not connect to local WiFi. Wait 1 sec and goto wifi_connect");
-      delay(1000);
-      count = 0;
-      goto wifi_connect;
+      Serial.println("Could not connect to local WiFi. Self-reset");
+      pinMode(RESET_PIN, OUTPUT);
     }
 
     delay(500);
