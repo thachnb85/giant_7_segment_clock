@@ -153,3 +153,7 @@ function updateHourFormat() {
     var hourformat = $('#hourFormat').val();
     $.post("/hourformat", { hourformat: hourformat });
 }
+
+function generate649() {
+    $.post("/generate649");
+}

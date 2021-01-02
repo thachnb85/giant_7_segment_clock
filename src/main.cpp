@@ -18,6 +18,7 @@ ESP8266HTTPUpdateServer httpUpdateServer;
 #define PIN D3
 #define serialRate 9600
 #define NUM_LEDS 58 // Total 58 leds for 2 leds/segment design.
+#define RESET_PIN D1
 
 // Setup the LED strips.
 Adafruit_NeoPixel LEDs(NUM_LEDS, PIN, NEO_GRBW + NEO_KHZ800);
@@ -47,6 +48,9 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 
 //=====================================================================================================
+// 649
+long lastNumber = 0;
+
 // Settings
 
 float temperatureNow = 0;
@@ -137,42 +141,48 @@ void allBlank();
 String httpGETRequest(const char *serverName);
 void queryTemperature();
 void displayColorfulDots();
+void generate649();
 
 ///==================================================================================
 void setup()
 {
   pinMode(COUNTDOWN_OUTPUT, OUTPUT);
+  pinMode(RESET_PIN, INPUT);    
+  digitalWrite(RESET_PIN, LOW);
+
   Serial.begin(9600);
   delay(200);
 
   // LED Startup Sequence
   LEDs.begin();
 
+  // Comment out for silent restarting
   // flash red then green then blue for testing
-  for (int i = 0; i < NUM_LEDS; i++)
-  {
-    LEDs.setPixelColor(i, LEDs.Color(80, 0, 0));
-  }
-  LEDs.show();
-  delay(500);
+  // for (int i = 0; i < NUM_LEDS; i++)
+  // {
+  //   LEDs.setPixelColor(i, LEDs.Color(80, 0, 0));
+  // }
+  // LEDs.show();
+  // delay(500);
 
-  for (int i = 0; i < NUM_LEDS; i++)
-  {
-    LEDs.setPixelColor(i, LEDs.Color(0, 80, 0));
-  }
-  LEDs.show();
-  delay(500);
+  // for (int i = 0; i < NUM_LEDS; i++)
+  // {
+  //   LEDs.setPixelColor(i, LEDs.Color(0, 80, 0));
+  // }
+  // LEDs.show();
+  // delay(500);
 
-  for (int i = 0; i < NUM_LEDS; i++)
-  {
-    LEDs.setPixelColor(i, LEDs.Color(0, 0, 80));
-  }
-  LEDs.show();
-  delay(500);
+  // for (int i = 0; i < NUM_LEDS; i++)
+  // {
+  //   LEDs.setPixelColor(i, LEDs.Color(0, 0, 80));
+  // }
+  // LEDs.show();
+  // delay(500);
 
-  // clear all leds
-  LEDs.clear();
-  LEDs.show();
+  // // clear all leds
+  // allBlank();
+  // LEDs.clear();
+  // LEDs.show();
 
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
 
@@ -194,7 +204,7 @@ void setup()
   while (WiFi.status() != WL_CONNECTED)
   {
     // Stop if cannot connect
-    if (count >= 60)
+    if (count >= 100)
     {
       Serial.println("Could not connect to local WiFi.");
       return;
@@ -203,13 +213,14 @@ void setup()
     delay(500);
     Serial.print(".");
 
-    // Showing one by one led till wifi is connected.
-    for (int i = 0; i < count; i++)
-    {
-      LEDs.setPixelColor(i, LEDs.Color(0, 255, 0));
-    }
-    LEDs.show();
-    count++;
+    //// Comment out for silent restarting
+    // // Showing one by one led till wifi is connected.
+    // for (int i = 0; i < count; i++)
+    // {
+    //   LEDs.setPixelColor(i, LEDs.Color(0, 255, 0));
+    // }
+    // LEDs.show();
+    // count++;
   }
 
   Serial.print("Local IP: ");
@@ -290,6 +301,14 @@ void setup()
     server.send(200, "text/json", "{\"result\":\"ok\"}");
   });
 
+  server.on("/generate649", HTTP_POST, []() {
+  clockMode = 4;
+  countdownMilliSeconds = 9000;
+  endCountDownMillis = millis() + countdownMilliSeconds;
+  //allBlank();
+  server.send(200, "text/json", "{\"result\":\"ok\"}");
+  });
+
   server.serveStatic("/", SPIFFS, "/", "max-age=86400");
   server.begin();
 
@@ -306,6 +325,8 @@ void setup()
 
   timeClient.begin();
   digitalWrite(COUNTDOWN_OUTPUT, LOW);
+
+  queryTemperature();
 }
 
 void loop()
@@ -317,19 +338,24 @@ void loop()
   int currentMin = timeClient.getMinutes();
   int currentSecond = timeClient.getSeconds();
 
-  isNightColor = (currentHour >= 21) || (currentHour < 7) || (currentHour == 7 && currentMin < 30);
+  isNightColor = (currentHour >= 21) || (currentHour < 8) || (currentHour == 8 && currentMin < 30);
+
+  if ((currentMin % 10 == 0) && (currentSecond == 20)){
+    //RESET the device via RST pin.
+    pinMode(RESET_PIN, OUTPUT);
+  }
 
   if (currentSecond - previousSeconds != 0)
   {
     previousSeconds = currentSecond;
-    if (currentSecond % 10 == 0)
+    if (currentSecond % 600 == 0) // every 10 minutes
     {
       queryTemperature();
     }
 
     if (clockMode == 0)
     {
-      if ((currentSecond >= 5 && currentSecond <= 10) || (currentSecond >= 25 && currentSecond <= 30))
+      if ((currentSecond >= 3 && currentSecond <= 6) || (currentSecond >= 33 && currentSecond <= 36)) 
       {
         updateTemperature();
       }
@@ -349,6 +375,10 @@ void loop()
     else if (clockMode == 3)
     {
       updateScoreboard();
+    }
+    else if (clockMode == 4)
+    {
+      generate649();
     }
 
     LEDs.setBrightness(brightness);
@@ -433,7 +463,11 @@ void updateClock(int hour, int mins, int secs)
   displayNumber(m1, 1, color);
   displayNumber(m2, 0, color);
 
-  displayColorfulDots();
+  if (isNightColor){
+    displayDots(color);
+  }else{
+    displayColorfulDots();
+  }
 }
 
 void updateCountdown()
@@ -673,4 +707,93 @@ String httpGETRequest(const char *serverName)
   }
   http.end();
   return payload;
+}
+
+void generate649()
+{
+  if (countdownMilliSeconds == 0 && endCountDownMillis == 0)
+    return;
+
+  unsigned long restMillis = endCountDownMillis - millis();
+  unsigned long seconds = restMillis / 1000;
+
+  long outNumber = 649;
+  switch (seconds){
+    case 9:
+    outNumber = 649;
+    lastNumber = 0;
+    break;
+
+    case 8:
+    outNumber = 649;
+    lastNumber = 0;
+    break;
+
+    case 7:
+    outNumber = 649;
+    lastNumber = 0;
+    break;  
+
+    case 6:
+    outNumber = random(1,10);
+    lastNumber = outNumber;    
+    break;
+
+    case 5:
+    outNumber = random(lastNumber,20);
+    lastNumber = outNumber;   
+    break;
+
+    case 4:
+    outNumber = random(lastNumber,30);
+    lastNumber = outNumber;   
+    break;
+
+    case 3:
+    outNumber = random(lastNumber,36);
+    lastNumber = outNumber;   
+    break;
+
+    case 2: 
+    outNumber = random(lastNumber,40);
+    lastNumber = outNumber;
+    break;
+
+    case 1:
+    outNumber = random(lastNumber,49);
+    lastNumber = outNumber;
+    break;
+
+    case 0:
+    outNumber = random(1,49);
+    lastNumber = 0;
+    break;
+  }
+
+  Serial.println(outNumber);
+  Serial.println(".");
+  byte m1 = outNumber / 10;
+  byte m2 = outNumber % 10;
+
+
+  uint32_t color = LEDs.Color(255, 0, 0);
+
+  if (outNumber == 649){
+    displayNumber(6, 2, color);
+    displayNumber(4, 1, color);
+    displayNumber(9, 0, color);
+  }else{
+    displayNumber(10, 2, color);
+    displayNumber(m1, 1, color);
+    displayNumber(m2, 0, color);
+  }
+
+  if (seconds <= 0)
+  {
+    Serial.println("649 done");
+    countdownMilliSeconds = 0;
+    endCountDownMillis = 0;
+    clockMode = 0;
+    return;
+  }
 }
