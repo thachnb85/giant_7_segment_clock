@@ -442,6 +442,12 @@ void updateClock(int hour, int mins, int secs)
   if (isNightColor)
   {
     color = LEDs.Color(r_val_night, g_val_night, b_val_night);
+  }else{
+    dotColorIndex++;
+    if (dotColorIndex >7) dotColorIndex = 0;
+
+    // color change every minute
+    color = dotColors[mins % 8];
   }
 
   if (hourFormat == 12 && hour > 12)
@@ -583,9 +589,6 @@ void displayColorfulDots()
     LEDs.setPixelColor(28, LEDs.Color(0, 0, 0));
     LEDs.setPixelColor(29, LEDs.Color(0, 0, 0));
   }
-  dotColorIndex++;
-  if (dotColorIndex >= 8)
-    dotColorIndex = 0;
 
   dotsOn = !dotsOn;
 }
