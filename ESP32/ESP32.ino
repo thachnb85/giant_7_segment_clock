@@ -8,6 +8,7 @@
 #include "FS.h"
 #include "WiFi.h"
 #include "SPIFFS.h"
+#include "time.h"
 
 #define countof(a) (sizeof(a) / sizeof(a[0]))
 //=====================================================================================================
@@ -19,6 +20,7 @@
 #define LED_PIN 13
 #define serialRate 9600
 #define NUM_LEDS 58 // Total 58 leds for 2 leds/segment design.
+#define COUNTDOWN_OUTPUT 5
 
 // D12 to EN pin on ESP32
 
@@ -26,7 +28,7 @@
 Adafruit_NeoPixel LEDs(NUM_LEDS, LED_PIN, NEO_GRBW + NEO_KHZ800);
 //====================================================================================================
 // Wifi Setup
-#define WIFIMODE 2 // 0 = Only Soft Access Point, 1 = Only connect to local WiFi network with UN/PW, 2 = Both
+#define WIFIMODE 1 // 0 = Only Soft Access Point, 1 = Only connect to local WiFi network with UN/PW, 2 = Both
 
 #if defined(WIFIMODE) && (WIFIMODE == 0 || WIFIMODE == 2)
 const char *APssid = "CLOCK_AP";
@@ -34,21 +36,10 @@ const char *APpassword = "1234567890";
 #endif
 
 #if defined(WIFIMODE) && (WIFIMODE == 1 || WIFIMODE == 2)
-#include "credential.h" // Create this file in the same directory as the .ino file and add your credentials (#define SID YOURSSID and on the second line #define PW YOURPASSWORD)
+#define ssid "xxxxxxxxxxxxxxx" 
+#define password "xxxxxxxxxxxxxxx"
+const char *weatherURL = "xxxxxxxxxxxxxxx";
 #endif
-//=====================================================================================================
-// NTP SERVER
-
-// For UTC -6.00 : -6 * 60 * 60 : -21600 (Saskatoon)
-// For UTC +1.00 : 1 * 60 * 60 : 3600
-// For UTC +0.00 : 0 * 60 * 60 : 0
-
-const long utcOffsetInSeconds = -21600;
-char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
-// Define NTP Client to get time
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
-
 //=====================================================================================================
 // 649
 long lastNumber = 0;
@@ -163,6 +154,56 @@ String httpGETRequest(const char *serverName)
   return payload;
 }
 
+
+///==================================================================================
+/// TIME
+
+
+void setTimezone(String timezone) {
+  Serial.printf("  Setting Timezone to %s\n", timezone.c_str());
+  setenv("TZ", timezone.c_str(), 1); //  Now adjust the TZ.  Clock settings are adjusted to show the new local time
+  tzset();
+}
+
+void initTime(String timezone) {
+  struct tm timeinfo;
+
+  Serial.println("Setting up time");
+  configTime(0, 0, "pool.ntp.org");    // First connect to NTP server, with 0 TZ offset
+  delay(100);
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("  Failed to obtain time");
+  }
+  // Now we can set the real timezone
+  setTimezone(timezone);
+}
+
+void printLocalTime() {
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("Failed to obtain time 1");
+    return;
+  }
+  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S zone %Z %z ");
+}
+
+void setTime(int yr, int month, int mday, int hr, int minute, int sec, int isDst) {
+  struct tm tm;
+
+  tm.tm_year = yr - 1900;   // Set date
+  tm.tm_mon = month - 1;
+  tm.tm_mday = mday;
+  tm.tm_hour = hr;      // Set time
+  tm.tm_min = minute;
+  tm.tm_sec = sec;
+  tm.tm_isdst = isDst;  // 1 or 0
+  time_t t = mktime(&tm);
+  Serial.printf("Setting time: %s", asctime(&tm));
+  struct timeval now = { .tv_sec = t };
+  settimeofday(&now, NULL);
+}
+
+
 ///==================================================================================
 void setup()
 {
@@ -251,7 +292,10 @@ void setup()
 
   SPIFFS.begin();
 
-  timeClient.begin();
+  // Correcting timezone
+  // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
+  initTime("PST8PDT,M3.2.0,M11.1.0");   // Set for Vancouver
+  printLocalTime();
   digitalWrite(COUNTDOWN_OUTPUT, LOW);
 
   queryTemperature();
@@ -260,11 +304,15 @@ void setup()
 
 void loop()
 {
-  timeClient.update();
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    // Serial.println("Failed to obtain time 1");
+    return;
+  }
 
-  int currentHour = timeClient.getHours();
-  int currentMin = timeClient.getMinutes();
-  int currentSecond = timeClient.getSeconds();
+  int currentHour = timeinfo.tm_hour;
+  int currentMin = timeinfo.tm_min;
+  int currentSecond = timeinfo.tm_sec;
 
   isNightColor = (currentHour >= 23) || (currentHour < 7) || (currentHour == 7 && currentMin < 30);
 
@@ -543,7 +591,10 @@ void updateTemperature()
   {
     if (printMinusSign)
     {
-      displayNumber(14, 3, color);
+      // Check if t2=0, we also don't need the minus  
+      if (t2 != 0) {
+        displayNumber(14, 3, color);
+      }
     }
     displayNumber(t2, 2, color);
     displayNumber(11, 1, color);                // degree symbol
@@ -591,18 +642,4 @@ void queryTemperature()
   }
   JSONVar value = myObject["main"]["feels_like"];
   temperatureNow = double(value) - 273.15; // in *C
-}
-
-void displayTemperature()
-{
-  byte t1 = int(temperatureNow) / 10;
-  byte t2 = int(temperatureNow) % 10;
-
-  uint32_t color = LEDs.Color(r_val, g_val, b_val);
-
-  displayNumber(t1, 3, color);
-  displayNumber(t2, 2, color);
-  displayNumber(11, 1, color);
-  displayNumber(temperatureSymbol, 0, color);
-  hideDots();
 }
