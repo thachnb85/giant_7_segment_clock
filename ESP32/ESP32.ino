@@ -36,9 +36,9 @@ const char *APpassword = "1234567890";
 #endif
 
 #if defined(WIFIMODE) && (WIFIMODE == 1 || WIFIMODE == 2)
-#define ssid "xxxxxxxxxxxxxxx" 
-#define password "xxxxxxxxxxxxxxx"
-const char *weatherURL = "xxxxxxxxxxxxxxx";
+#define ssid "x" 
+#define password "x"
+const char *weatherURL = "x";
 #endif
 //=====================================================================================================
 // 649
@@ -209,7 +209,7 @@ void setup()
 {
   Serial.begin(115200);
 
-  pinMode(COUNTDOWN_OUTPUT, OUTPUT);
+//  pinMode(COUNTDOWN_OUTPUT, OUTPUT);
 
   delay(200);
 
@@ -314,7 +314,7 @@ void loop()
   int currentMin = timeinfo.tm_min;
   int currentSecond = timeinfo.tm_sec;
 
-  isNightColor = (currentHour >= 23) || (currentHour < 7) || (currentHour == 7 && currentMin < 30);
+  isNightColor = (currentHour >= 22) || (currentHour < 7) || (currentHour == 7 && currentMin < 30);
 
   if ((currentSecond == 10) && (currentMin % 10 == 0 )){
     Serial.print("Reset the controller.............");
@@ -565,6 +565,7 @@ void hideDots()
 
 void updateTemperature()
 {
+  LEDs.clear();
   float ctemp = temperatureNow;
 
   // Convert to F
